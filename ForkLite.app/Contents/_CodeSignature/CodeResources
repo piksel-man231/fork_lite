@@ -4,6 +4,10 @@
 <dict>
 	<key>files</key>
 	<dict>
+		<key>Resources/AppIcon.icns</key>
+		<data>
+		S0FN0xd1fRU/CDuLxtH62ezVph4=
+		</data>
 		<key>Resources/helper/fork-core-start</key>
 		<data>
 		XfcDXqGYXUgAbihH2bMgQqKqJFc=
@@ -19,14 +23,12 @@
 	</dict>
 	<key>files2</key>
 	<dict>
-		<key>MacOS/Fork</key>
+		<key>Resources/AppIcon.icns</key>
 		<dict>
-			<key>cdhash</key>
+			<key>hash2</key>
 			<data>
-			1M1sCMtjGvS7x30ybbZSRW9EXFw=
+			foemll0cQ8soUJDYP7w/qu1Sq/31gWW22gVTc4XVuY4=
 			</data>
-			<key>requirement</key>
-			<string>cdhash H"d4cd6c08cb631af4bbc77d326db652456f445c5c"</string>
 		</dict>
 		<key>Resources/helper/fork-core-start</key>
 		<dict>

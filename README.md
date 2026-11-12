@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="Assets/AppIcon.png" alt="Fork Lite" width="128" height="128">
+
 # Fork Lite
 
 **Управляйте маршрутизацией на Mac прямо из строки меню.**
