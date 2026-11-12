@@ -33,7 +33,7 @@ public struct Rule: Codable, Identifiable, Equatable, Sendable {
 /// Xray toggle and ordered routing rules.
 public struct Settings: Codable, Equatable, Sendable {
     public var xrayOn = false
-    public var rules: [Rule] = Settings.defaultRules
+    public var rules: [Rule] = []
     public var autoBest = true
     public init() {}
 
@@ -41,16 +41,16 @@ public struct Settings: Codable, Equatable, Sendable {
     public init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
         xrayOn = try c.decodeIfPresent(Bool.self, forKey: .xrayOn) ?? false
-        rules = try c.decodeIfPresent([Rule].self, forKey: .rules) ?? Settings.defaultRules
+        let saved = try c.decodeIfPresent([Rule].self, forKey: .rules) ?? []
+        // 0.2.0 saved these four defaults after the first settings change.
+        // Remove only the untouched set; keep every custom or edited rule.
+        let oldValues = ["100.64.0.0/10", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+        let oldDefaults = saved.count == oldValues.count && zip(saved, oldValues).allSatisfy { rule, value in
+            rule.kind == .ipCidr && rule.value == value && rule.target == .direct && rule.enabled
+        }
+        rules = oldDefaults ? [] : saved
         autoBest = try c.decodeIfPresent(Bool.self, forKey: .autoBest) ?? true
     }
-
-    public static let defaultRules: [Rule] = [
-        Rule(kind: .ipCidr, value: "100.64.0.0/10", target: .direct),
-        Rule(kind: .ipCidr, value: "10.0.0.0/8", target: .direct),
-        Rule(kind: .ipCidr, value: "172.16.0.0/12", target: .direct),
-        Rule(kind: .ipCidr, value: "192.168.0.0/16", target: .direct),
-    ]
 }
 
 /// VLESS-сервер (то, что V2Box/Clash держат как «профиль»). Секреты хранятся только на диске с правами 0600.

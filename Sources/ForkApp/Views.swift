@@ -92,6 +92,10 @@ struct RulesView: View {
         Form {
             Section {
                 List {
+                    if m.settings.rules.isEmpty {
+                        Text("Правил пока нет. Добавьте своё правило ниже.")
+                            .foregroundStyle(.secondary)
+                    }
                     ForEach($m.settings.rules) { $r in
                         HStack {
                             grip
