@@ -1,0 +1,25 @@
+#!/bin/bash
+# Запускается от root через sudoers. Конфиг лежит у владельца (SUDO_USER); перед запуском чистим то,
+# что дало бы root-запись/доступ мимо замысла (путь лога, внешние API), и проверяем sing-box check.
+F=/usr/local/fork_lite
+U=${SUDO_USER:-}; [ -n "$U" ] || { echo "нет SUDO_USER" >&2; exit 1; }
+SRC="/Users/$U/Library/Application Support/Fork Lite/config.json"
+RUN=$F/run; mkdir -p "$RUN"; chmod 755 "$RUN"
+/usr/bin/python3 - "$SRC" "$RUN/config.json" "$RUN/core.log" <<'PY' || exit 1
+import json, sys
+src, dst, log = sys.argv[1:4]
+c = json.load(open(src))
+c.setdefault("log", {})["output"] = log
+# Clash API оставляем только на localhost и только с секретом; всё остальное из experimental — долой.
+ca = c.get("experimental", {}).get("clash_api", {})
+secret = ca.get("secret", "")
+c.pop("experimental", None)
+if secret:
+    c["experimental"] = {"clash_api": {"external_controller": "127.0.0.1:19091", "secret": secret}}
+json.dump(c, open(dst, "w"))
+PY
+"$F/sing-box" check -c "$RUN/config.json" || exit 1
+
+pkill -f "$F/sing-box run" 2>/dev/null && sleep 1
+: > "$RUN/core.log"; chmod 644 "$RUN/core.log"
+exec "$F/sing-box" run -c "$RUN/config.json" -D "$RUN"
