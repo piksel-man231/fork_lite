@@ -3,7 +3,7 @@ import ForkCore
 
 extension Target {
     var title: String {
-        switch self { case .xray: "Xray"; case .direct: "Напрямую"; case .block: "Блок" }
+        switch self { case .xray: "Сервер"; case .direct: "Напрямую"; case .block: "Блок" }
     }
 }
 extension RuleKind {
@@ -21,7 +21,7 @@ struct MenuView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            row("Xray", binding: $m.settings.xrayOn,
+            row("Подключение", binding: $m.settings.xrayOn,
                 status: !m.settings.xrayOn ? .off : (m.xrayMissing ? .failed("нет профиля") : m.coreStatus),
                 hint: m.settings.xrayOn ? (m.xray.map { "Сервер: \($0.name)" } ?? "Всё, кроме ваших правил") : nil)
             if !m.profiles.items.isEmpty {
@@ -117,8 +117,8 @@ struct RulesView: View {
             } header: { Text("Ваши правила").font(.headline) }
 
             Section {
-                Label(m.settings.xrayOn ? "Всё остальное → Xray" : "Всё остальное → напрямую (Xray выключен)", systemImage: "arrow.right")
-                Text("Правила с выходом Xray пропускаются, когда Xray выключен.").font(.caption).foregroundStyle(.secondary)
+                Label(m.settings.xrayOn ? "Всё остальное → выбранный сервер" : "Всё остальное → напрямую (подключение выключено)", systemImage: "arrow.right")
+                Text("Правила с выходом «Сервер» пропускаются, когда подключение выключено.").font(.caption).foregroundStyle(.secondary)
             } header: { Text("Остальное").font(.headline) }
 
 
@@ -176,12 +176,12 @@ struct ConnectionsView: View {
             HStack {
                 TextField("Поиск по узлу, процессу, выходу, правилу", text: $query).textFieldStyle(.roundedBorder)
                 Toggle("Служебные (\(m.rows.filter(\.isService).count))", isOn: $showService)
-                    .help("Соединения Xray к серверу дублируют трафик приложений на уровне транспорта.")
+                    .help("Соединения к серверу могут дублировать трафик приложений на уровне транспорта.")
             }
             if let ruleNotice { Text(ruleNotice).font(.caption).foregroundStyle(.secondary) }
             if m.coreStatus != .on {
                 ContentUnavailableView("Нет соединений", systemImage: "arrow.triangle.branch",
-                    description: Text("Включите Xray — соединения появятся здесь."))
+                    description: Text("Включите подключение — соединения появятся здесь."))
             } else {
                 Table(filtered, selection: $selectedConnection, sortOrder: $sortOrder) {
                     TableColumn("Узел", value: \.host) { Text($0.host).lineLimit(1) }.width(min: 160, ideal: 220)
@@ -245,7 +245,7 @@ struct ConnectionsView: View {
 }
 
 
-// MARK: серверы Xray
+// MARK: серверы
 
 struct ServersView: View {
     @EnvironmentObject var m: AppModel
@@ -256,13 +256,24 @@ struct ServersView: View {
             HStack {
                 Button { Task { await m.runPings() } } label: { Label("Пинг всех", systemImage: "bolt.horizontal") }
                     .disabled(m.profiles.items.isEmpty || m.pingBlocked)
-                Toggle("При включении Xray выбирать самый быстрый", isOn: $m.settings.autoBest)
+                Toggle("При включении выбирать самый быстрый (TCP)", isOn: $m.settings.autoBest)
                 Spacer()
                 Button("Из буфера обмена") { if let s = NSPasteboard.general.string(forType: .string) { Task { await m.importInput(s) } } }
                 Button("Из Clash Verge") { Task { await m.importFromClashVerge() } }
+                Button("Из файла…") {
+                    let panel = NSOpenPanel()
+                    panel.canChooseFiles = true; panel.allowsMultipleSelection = false
+                    if panel.runModal() == .OK, let url = panel.url {
+                        let access = url.startAccessingSecurityScopedResource()
+                        defer { if access { url.stopAccessingSecurityScopedResource() } }
+                        if let contents = try? String(contentsOf: url, encoding: .utf8) {
+                            Task { await m.importInput(contents) }
+                        } else { m.notice = "Не удалось прочитать файл как UTF-8" }
+                    }
+                }
             }
             HStack {
-                TextField("Ссылка подписки https://, vless:// или YAML Clash", text: $link).textFieldStyle(.roundedBorder)
+                TextField("Ссылка подписки https:// или ссылка профиля", text: $link).textFieldStyle(.roundedBorder)
                 Button("Добавить") { let value = link; link = ""; Task { await m.importInput(value) } }.disabled(link.isEmpty || m.subscriptionLoading)
             }
             if !m.profiles.subscriptions.isEmpty {
@@ -285,15 +296,15 @@ struct ServersView: View {
             }
             if let n = m.notice { Text(n).font(.callout).foregroundStyle(.orange) }
             if m.pingBlocked {
-                Text("Пока Xray включён, пинг недоступен: проверка шла бы через собственный туннель.")
+                Text("Пока подключение включено, пинг недоступен: проверка шла бы через собственный туннель.")
                     .font(.caption).foregroundStyle(.secondary)
             } else {
-                Text("Пинг — время TCP-соединения с сервером (достижимость и задержка), не скорость через прокси.")
+                Text("TCP-пинг показывает задержку, а не скорость. Для UDP-протоколов он недоступен.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             if m.profiles.items.isEmpty {
                 ContentUnavailableView("Серверов нет", systemImage: "server.rack",
-                    description: Text("Вставьте ссылку подписки или vless:// либо загрузите профили из Clash Verge."))
+                    description: Text("Вставьте ссылку профиля или подписки, либо загрузите конфигурацию из файла."))
             } else {
                 List {
                     ForEach(m.profiles.items) { p in

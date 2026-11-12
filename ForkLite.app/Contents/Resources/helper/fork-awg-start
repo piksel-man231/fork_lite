@@ -1,0 +1,102 @@
+#!/usr/bin/python3
+"""Start a bundled AmneziaWG tunnel without changing the system default route."""
+import os
+import pwd
+import signal
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path("/usr/local/fork_lite")
+RUN = ROOT / "run"
+RUN.mkdir(mode=0o700, parents=True, exist_ok=True)
+user = os.environ.get("SUDO_USER")
+if os.geteuid() != 0 or not user:
+    sys.exit("Run from Fork Lite with sudo")
+subprocess.run([str(ROOT / "fork-awg-stop")], stdout=subprocess.DEVNULL,
+               stderr=subprocess.DEVNULL, check=False)
+source = Path(pwd.getpwnam(user).pw_dir) / "Library/Application Support/Fork Lite/awg.conf"
+fd = os.open(source, os.O_RDONLY | os.O_NOFOLLOW)
+st = os.fstat(fd)
+if st.st_uid != pwd.getpwnam(user).pw_uid or st.st_mode & 0o077:
+    os.close(fd)
+    sys.exit("AmneziaWG config has unsafe owner or permissions")
+with os.fdopen(fd) as stream:
+    config = stream.read(65536)
+if len(config) >= 65536:
+    sys.exit("AmneziaWG config is too large")
+
+section = ""
+setconf = []
+addresses = []
+mtu = 0
+for raw in config.splitlines():
+    line = raw.strip()
+    if not line:
+        continue
+    if line in ("[Interface]", "[Peer]"):
+        section = line
+        setconf.append(line)
+        continue
+    if "=" not in line or section not in ("[Interface]", "[Peer]"):
+        sys.exit("Invalid AmneziaWG config")
+    key, value = (part.strip() for part in line.split("=", 1))
+    if section == "[Interface]" and key.lower() == "address":
+        addresses = [item.strip() for item in value.split(",")]
+    elif section == "[Interface]" and key.lower() == "mtu":
+        mtu = int(value)
+    elif section == "[Interface]" and key.lower() == "table":
+        if value.lower() != "off":
+            sys.exit("AmneziaWG must not change default routes")
+    else:
+        setconf.append(f"{key} = {value}")
+if not addresses or not setconf:
+    sys.exit("Incomplete AmneziaWG config")
+
+name_file = RUN / "awg-iface"
+name_file.unlink(missing_ok=True)
+env = dict(os.environ, WG_TUN_NAME_FILE=str(name_file))
+log = open(RUN / "awg.log", "ab", buffering=0)
+proc = subprocess.Popen([str(ROOT / "amneziawg-go"), "-f", "utun"],
+                        env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+                        start_new_session=True)
+try:
+    for _ in range(100):
+        if name_file.exists():
+            break
+        if proc.poll() is not None:
+            sys.exit("amneziawg-go exited")
+        time.sleep(0.1)
+    iface = name_file.read_text().strip()
+    if not iface.startswith("utun") or not iface[4:].isdigit():
+        sys.exit("AmneziaWG did not create a utun interface")
+    conf = RUN / "awg-set.conf"
+    conf.write_text("\n".join(setconf) + "\n")
+    conf.chmod(0o600)
+    for attempt in range(20):
+        result = subprocess.run([str(ROOT / "awg"), "setconf", iface, str(conf)],
+                                capture_output=True, text=True)
+        if result.returncode == 0:
+            break
+        if proc.poll() is not None or attempt == 19:
+            sys.exit("awg setconf failed: " + result.stderr[-300:])
+        time.sleep(0.1)
+    for address in addresses:
+        if ":" in address:
+            subprocess.run(["/sbin/ifconfig", iface, "inet6", address, "alias"], check=True)
+        else:
+            subprocess.run(["/sbin/ifconfig", iface, "inet", address, address.split("/")[0], "alias"], check=True)
+    if mtu:
+        subprocess.run(["/sbin/ifconfig", iface, "mtu", str(mtu)], check=True)
+    subprocess.run(["/sbin/ifconfig", iface, "up"], check=True)
+    subprocess.run(["/sbin/route", "-n", "add", "-inet", "default", "-interface", iface, "-ifscope", iface],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+    if any(":" in address for address in addresses):
+        subprocess.run(["/sbin/route", "-n", "add", "-inet6", "default", "-interface", iface, "-ifscope", iface],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+    (RUN / "awg.pid").write_text(str(proc.pid))
+    print(iface)
+except BaseException:
+    proc.send_signal(signal.SIGTERM)
+    raise

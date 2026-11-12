@@ -1,0 +1,29 @@
+#!/usr/bin/python3
+import os
+import signal
+import subprocess
+import time
+from pathlib import Path
+
+run = Path("/usr/local/fork_lite/run")
+iface_file = run / "awg-iface"
+pid_file = run / "awg.pid"
+iface = iface_file.read_text().strip() if iface_file.exists() else ""
+if iface.startswith("utun") and iface[4:].isdigit():
+    for family in ("-inet", "-inet6"):
+        subprocess.run(["/sbin/route", "-n", "delete", family, "default", "-ifscope", iface],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+if pid_file.exists():
+    pid = int(pid_file.read_text().strip())
+    command = subprocess.run(["/bin/ps", "-p", str(pid), "-o", "comm="], capture_output=True, text=True).stdout
+    if "amneziawg-go" in command:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        for _ in range(20):
+            if subprocess.run(["/bin/ps", "-p", str(pid)], capture_output=True).returncode != 0:
+                break
+            time.sleep(0.1)
+pid_file.unlink(missing_ok=True)
+iface_file.unlink(missing_ok=True)

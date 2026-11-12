@@ -47,12 +47,22 @@ final class AppModel: ObservableObject {
     private var applyTask: Task<Void, Never>?
     private var applying = false, again = false
     private var coreProc: Process?
+    private var awgProfile: XrayProfile?
+    private var awgIface: String?
+    private var awgMonitorTask: Task<Void, Never>?
 
     /// Скрипты помощника в приложении совпадают с установленными (без бандла — считаем актуальными, это запуск из исходников).
     var helperUpToDate: Bool {
         guard let dir = Bundle.main.resourcePath.map({ $0 + "/helper" }),
               let names = try? FileManager.default.contentsOfDirectory(atPath: dir) else { return true }
-        return names.allSatisfy { FileManager.default.contentsEqual(atPath: "\(dir)/\($0)", andPath: "\(Self.helperDir)/\($0)") }
+        let scriptsMatch = names.allSatisfy {
+            FileManager.default.contentsEqual(atPath: "\(dir)/\($0)", andPath: "\(Self.helperDir)/\($0)")
+        }
+        let binariesMatch = ["sing-box", "amneziawg-go", "awg"].allSatisfy { name in
+            guard let bundled = Bundle.main.resourcePath.map({ "\($0)/vendor/bin/\(name)" }) else { return false }
+            return FileManager.default.contentsEqual(atPath: bundled, andPath: "\(Self.helperDir)/\(name)")
+        }
+        return scriptsMatch && binariesMatch
     }
 
     var helperInstalled: Bool { FileManager.default.isExecutableFile(atPath: "\(Self.helperDir)/fork-core-start") }
@@ -68,7 +78,7 @@ final class AppModel: ObservableObject {
             profiles.add([one]); Store.save(profiles, name: "profiles.json")
         }
         NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: nil) { _ in
-            _ = Shell.sudo("fork-core-stop"); XraySidecar.shared.stop()
+            _ = Shell.sudo("fork-core-stop"); _ = Shell.sudo("fork-awg-stop"); XraySidecar.shared.stop()
         }
         if !profiles.subscriptions.isEmpty { Task { await refreshSubscriptions() } }
     }
@@ -111,7 +121,15 @@ final class AppModel: ObservableObject {
         // 1.5. Xray только что включили: самый быстрый сервер (пока TUN не поднят, пинг идёт по обычной сети).
         if pendingAutoPick {
             pendingAutoPick = false
-            if settings.xrayOn, settings.autoBest, profiles.items.count > 1 { await pickFastest() }
+            if settings.xrayOn, settings.autoBest, xray?.supportsTCPPing == true, profiles.items.count > 1 { await pickFastest() }
+        }
+
+        if let selected = xray, settings.xrayOn, selected.protocolType == "amneziawg" {
+            if awgProfile != selected, !(await startAwg(selected)) {
+                settings.xrayOn = false
+            }
+        } else if awgProfile != nil {
+            await stopAwg()
         }
 
         // 1.6. Для xhttp поднимаем локальный xray (SOCKS) до ядра; для остальных транспортов он не нужен.
@@ -123,14 +141,56 @@ final class AppModel: ObservableObject {
         } else { XraySidecar.shared.stop() }
 
         // 2. Ядро маршрутизации: перегенерируем конфиг под текущее состояние.
-        let b = ConfigBuilder(settings: settings, xray: xray, clashPort: Self.apiPort, clashSecret: apiSecret)
-        if settings.xrayOn && xray == nil { notice = "Xray включён, но профиль не загружен. Откройте «Профиль Xray»." }
+        let b = ConfigBuilder(settings: settings, xray: xray, clashPort: Self.apiPort,
+                              clashSecret: apiSecret, awgInterface: awgIface)
+        if settings.xrayOn && xray == nil { notice = "Подключение включено, но профиль не загружен. Откройте «Серверы»." }
         guard b.needsCore else { await stopCore(); return }
         do { try Store.writeConfig(b.json()) } catch { coreStatus = .failed("не записал конфиг: \(error.localizedDescription)"); return }
         await startCore()
     }
 
     // MARK: ядро
+
+    private func startAwg(_ profile: XrayProfile) async -> Bool {
+        if awgProfile != nil { await stopAwg() }
+        do {
+            try AwgConfigBuilder.config(profile).write(to: Store.awgConfigURL, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: Store.awgConfigURL.path)
+        } catch {
+            notice = "Не записал AmneziaWG-конфигурацию: \(error.localizedDescription)"
+            return false
+        }
+        let result = await Task.detached { Shell.sudo("fork-awg-start") }.value
+        guard result.code == 0, let iface = result.out.split(whereSeparator: \.isNewline).last.map(String.init),
+              iface.hasPrefix("utun") else {
+            notice = "AmneziaWG не запустился: \(result.out.trimmingCharacters(in: .whitespacesAndNewlines).suffix(300))"
+            return false
+        }
+        awgIface = iface; awgProfile = profile
+        awgMonitorTask = Task { await monitorAwg() }
+        return true
+    }
+
+    private func stopAwg() async {
+        awgMonitorTask?.cancel(); awgMonitorTask = nil
+        awgProfile = nil; awgIface = nil
+        await Task.detached { _ = Shell.sudo("fork-awg-stop") }.value
+    }
+
+    private func monitorAwg() async {
+        while !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            if Task.isCancelled || awgProfile == nil { return }
+            let alive = await Task.detached {
+                Shell.run("/usr/bin/pgrep", ["-f", "/usr/local/fork_lite/amneziawg-go"]).code == 0
+            }.value
+            if !alive {
+                settings.xrayOn = false
+                notice = "AmneziaWG остановился. Проверьте конфигурацию и журнал."
+                return
+            }
+        }
+    }
 
     private func startCore() async {
         coreStatus = .starting
@@ -180,14 +240,14 @@ final class AppModel: ObservableObject {
         guard let script = Bundle.main.path(forResource: "install-helper", ofType: "sh") else {
             notice = "В приложении нет установщика — соберите его через scripts/build-app.sh"; return
         }
-        guard let sb = ["/opt/homebrew/bin/sing-box", "/usr/local/bin/sing-box"].first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else {
-            notice = "Не найден sing-box. Установите: brew install sing-box"; return
+        guard Bundle.main.resourcePath.map({ FileManager.default.isExecutableFile(atPath: $0 + "/vendor/bin/sing-box") }) == true else {
+            notice = "В приложении нет sing-box. Пересоберите Fork Lite."; return
         }
         notice = "Устанавливаю помощника…"
-        let cmd = "SUDO_USER=\(ShellQuote.sh(NSUserName())) SINGBOX=\(ShellQuote.sh(sb)) /bin/bash \(ShellQuote.sh(script))"
+        let cmd = "SUDO_USER=\(ShellQuote.sh(NSUserName())) /bin/bash \(ShellQuote.sh(script))"
         Task {
             let r = await Task.detached { Shell.run("/usr/bin/osascript", ["-e", ShellQuote.adminScript(cmd)]) }.value
-            if r.code == 0 { notice = "Помощник установлен. Включайте переключатели." }
+            if r.code == 0 { notice = "Помощник установлен. Включайте подключение." }
             else if r.out.contains("User canceled") || r.out.contains("-128") { notice = "Установка отменена." }
             else { notice = "Не удалось установить помощника: \(r.out.trimmingCharacters(in: .whitespacesAndNewlines).suffix(300))" }
         }
@@ -270,7 +330,7 @@ final class AppModel: ObservableObject {
         for url in remoteURLs { await refreshSubscription(url) }
         let added = profiles.add(found)
         Store.save(profiles, name: "profiles.json")
-        if found.isEmpty && remoteURLs.isEmpty { notice = "В Clash Verge не нашёл профилей VLESS" }
+        if found.isEmpty && remoteURLs.isEmpty { notice = "В Clash Verge не нашёл поддерживаемых профилей" }
         else if remoteURLs.isEmpty { notice = added == 0 ? "Все серверы из Clash Verge уже в списке" : "Импортировано из Clash Verge: \(added)" }
     }
 
@@ -314,10 +374,10 @@ final class AppModel: ObservableObject {
     @discardableResult
     func runPings() async -> [UUID: PingResult] {
         let items = profiles.items
-        for p in items { pings[p.id] = .testing }
+        for p in items { pings[p.id] = p.supportsTCPPing ? .testing : .result(.failed("UDP: нет TCP-пинга")) }
         var results: [UUID: PingResult] = [:]
         await withTaskGroup(of: (UUID, PingResult).self) { g in
-            for p in items { g.addTask { (p.id, await TCPPing.measure(host: p.server, port: p.port)) } }
+            for p in items where p.supportsTCPPing { g.addTask { (p.id, await TCPPing.measure(host: p.server, port: p.port)) } }
             for await (id, r) in g { results[id] = r; pings[id] = .result(r) }
         }
         return results

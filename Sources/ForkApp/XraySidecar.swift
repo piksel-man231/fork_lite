@@ -9,12 +9,14 @@ final class XraySidecar: @unchecked Sendable {
     private var proc: Process?
 
     static var binary: String? {
-        ["/opt/homebrew/bin/xray", "/usr/local/bin/xray"].first { FileManager.default.isExecutableFile(atPath: $0) }
+        let bundled = Bundle.main.resourcePath.map { $0 + "/vendor/bin/xray" }
+        return ([bundled].compactMap { $0 } + ["/opt/homebrew/bin/xray", "/usr/local/bin/xray"])
+            .first { FileManager.default.isExecutableFile(atPath: $0) }
     }
 
     func start(_ profile: XrayProfile) throws {
         stop()
-        guard let bin = Self.binary else { throw ForkError.importFailed("Для xhttp нужен xray: brew install xray") }
+        guard let bin = Self.binary else { throw ForkError.importFailed("В приложении нет xray для xhttp") }
         let url = Store.dir.appendingPathComponent("xray-sidecar.json")
         try XrayConfigBuilder.json(profile).write(to: url, options: .atomic)
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)

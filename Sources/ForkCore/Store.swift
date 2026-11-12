@@ -8,6 +8,7 @@ public enum Store {
         return d
     }
     public static var configURL: URL { dir.appendingPathComponent("config.json") }
+    public static var awgConfigURL: URL { dir.appendingPathComponent("awg.conf") }
 
     public static func load<T: Decodable>(_ name: String, as: T.Type = T.self) -> T? {
         guard let d = try? Data(contentsOf: dir.appendingPathComponent(name)) else { return nil }

@@ -57,6 +57,7 @@ public struct Settings: Codable, Equatable, Sendable {
 /// Транспорт: tcp / ws / xhttp. Безопасность: reality / tls / none.
 public struct XrayProfile: Codable, Equatable, Sendable, Identifiable {
     public var id = UUID()
+    public var protocolType = "vless"
     public var name: String
     public var server: String
     public var port: Int
@@ -74,26 +75,56 @@ public struct XrayProfile: Codable, Equatable, Sendable, Identifiable {
     public var alpn = ""            // через запятую: h2,http/1.1
     public var xhttpExtra = ""      // xhttp: сырой JSON «extra» из ссылки
     public var sourceURL: String?     // подписка, из которой получен сервер
+    public var password = ""
+    public var method = ""
+    public var alterId = 0
+    public var obfs = ""
+    public var obfsPassword = ""
+    public var upMbps = 0
+    public var downMbps = 0
+    public var privateKey = ""
+    public var publicKeyPeer = ""
+    public var preSharedKey = ""
+    public var addresses: [String] = []
+    public var allowedIPs: [String] = []
+    public var mtu = 0
+    public var keepalive = 0
+    public var awgParameters: [String: String] = [:]
+    public var awgPeerParameters: [String: String] = [:]
+    public var dnsServer = ""
+    public var allowInsecure = false
 
     public static let networks = ["tcp", "ws", "xhttp"]
     public static let securities = ["reality", "tls", "none"]
 
     /// sing-box не умеет xhttp — такие профили обслуживает xray-core как локальный SOCKS.
-    public var needsSidecar: Bool { network == "xhttp" }
+    public var needsSidecar: Bool { protocolType == "vless" && network == "xhttp" }
+    public var supportsTCPPing: Bool { !["wireguard", "amneziawg", "hysteria2", "tuic"].contains(protocolType) }
     /// Короткая подпись для списка: «ws · tls».
-    public var kind: String { "\(network) · \(security)" }
+    public var kind: String {
+        ["wireguard", "amneziawg", "hysteria2", "tuic"].contains(protocolType)
+            ? protocolType.uppercased() : "\(protocolType.uppercased()) · \(network)"
+    }
 
     /// «Тот же сервер»: id не сравниваем — по нему дедуплицируем импорт.
     public static func == (a: XrayProfile, b: XrayProfile) -> Bool {
-        a.name == b.name && a.server == b.server && a.port == b.port && a.uuid == b.uuid && a.flow == b.flow
+        a.protocolType == b.protocolType && a.name == b.name && a.server == b.server && a.port == b.port && a.uuid == b.uuid && a.flow == b.flow
             && a.serverName == b.serverName && a.publicKey == b.publicKey && a.shortId == b.shortId
             && a.fingerprint == b.fingerprint && a.network == b.network && a.security == b.security
             && a.path == b.path && a.host == b.host && a.mode == b.mode && a.alpn == b.alpn && a.xhttpExtra == b.xhttpExtra
+            && a.password == b.password && a.method == b.method && a.alterId == b.alterId
+            && a.obfs == b.obfs && a.obfsPassword == b.obfsPassword && a.upMbps == b.upMbps && a.downMbps == b.downMbps
+            && a.privateKey == b.privateKey && a.publicKeyPeer == b.publicKeyPeer && a.preSharedKey == b.preSharedKey
+            && a.addresses == b.addresses && a.allowedIPs == b.allowedIPs && a.mtu == b.mtu
+            && a.keepalive == b.keepalive && a.awgParameters == b.awgParameters
+            && a.awgPeerParameters == b.awgPeerParameters && a.dnsServer == b.dnsServer
+            && a.allowInsecure == b.allowInsecure
     }
 
     // Старые файлы (без id и без транспорта) читаются как tcp+reality — так они и были созданы.
     public init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
+        protocolType = try c.decodeIfPresent(String.self, forKey: .protocolType) ?? "vless"
         id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         name = try c.decode(String.self, forKey: .name); server = try c.decode(String.self, forKey: .server)
         port = try c.decode(Int.self, forKey: .port); uuid = try c.decode(String.self, forKey: .uuid)
@@ -110,6 +141,24 @@ public struct XrayProfile: Codable, Equatable, Sendable, Identifiable {
         alpn = try c.decodeIfPresent(String.self, forKey: .alpn) ?? ""
         xhttpExtra = try c.decodeIfPresent(String.self, forKey: .xhttpExtra) ?? ""
         sourceURL = try c.decodeIfPresent(String.self, forKey: .sourceURL)
+        password = try c.decodeIfPresent(String.self, forKey: .password) ?? ""
+        method = try c.decodeIfPresent(String.self, forKey: .method) ?? ""
+        alterId = try c.decodeIfPresent(Int.self, forKey: .alterId) ?? 0
+        obfs = try c.decodeIfPresent(String.self, forKey: .obfs) ?? ""
+        obfsPassword = try c.decodeIfPresent(String.self, forKey: .obfsPassword) ?? ""
+        upMbps = try c.decodeIfPresent(Int.self, forKey: .upMbps) ?? 0
+        downMbps = try c.decodeIfPresent(Int.self, forKey: .downMbps) ?? 0
+        privateKey = try c.decodeIfPresent(String.self, forKey: .privateKey) ?? ""
+        publicKeyPeer = try c.decodeIfPresent(String.self, forKey: .publicKeyPeer) ?? ""
+        preSharedKey = try c.decodeIfPresent(String.self, forKey: .preSharedKey) ?? ""
+        addresses = try c.decodeIfPresent([String].self, forKey: .addresses) ?? []
+        allowedIPs = try c.decodeIfPresent([String].self, forKey: .allowedIPs) ?? []
+        mtu = try c.decodeIfPresent(Int.self, forKey: .mtu) ?? 0
+        keepalive = try c.decodeIfPresent(Int.self, forKey: .keepalive) ?? 0
+        awgParameters = try c.decodeIfPresent([String: String].self, forKey: .awgParameters) ?? [:]
+        awgPeerParameters = try c.decodeIfPresent([String: String].self, forKey: .awgPeerParameters) ?? [:]
+        dnsServer = try c.decodeIfPresent(String.self, forKey: .dnsServer) ?? ""
+        allowInsecure = try c.decodeIfPresent(Bool.self, forKey: .allowInsecure) ?? false
     }
 
     public init(name: String, server: String, port: Int, uuid: String, flow: String = "",

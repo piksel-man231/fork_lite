@@ -14,6 +14,7 @@ public enum XrayConfigBuilder {
         case "tls":
             var t: [String: Any] = ["serverName": x.serverName, "fingerprint": x.fingerprint]
             if !alpn.isEmpty { t["alpn"] = alpn }
+            if x.allowInsecure { t["allowInsecure"] = true }
             stream["tlsSettings"] = t
         default: break
         }

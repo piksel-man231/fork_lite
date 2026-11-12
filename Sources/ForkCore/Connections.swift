@@ -74,7 +74,7 @@ public struct ConnectionRow: Identifiable, Equatable, Sendable {
 
     /// Внешние соединения транспорта уже представлены строками приложений внутри туннеля.
     public var isService: Bool {
-        outbound == "direct" && ["xray"].contains(process)
+        outbound == "direct" && ["xray", "amneziawg-go"].contains(process)
     }
 }
 

@@ -8,6 +8,14 @@
 		<data>
 		S0FN0xd1fRU/CDuLxtH62ezVph4=
 		</data>
+		<key>Resources/helper/fork-awg-start</key>
+		<data>
+		TToJPgBXScMVAhn2T9sJUZ7eFFw=
+		</data>
+		<key>Resources/helper/fork-awg-stop</key>
+		<data>
+		VVf+NZV9/tKpsjK/IEEPcwu1cRY=
+		</data>
 		<key>Resources/helper/fork-core-start</key>
 		<data>
 		XfcDXqGYXUgAbihH2bMgQqKqJFc=
@@ -18,7 +26,59 @@
 		</data>
 		<key>Resources/install-helper.sh</key>
 		<data>
-		351TNKnYvh/K5VWc+S/LOPH6lik=
+		RvsJH+bOBQ+4kefAyM1G4OBqFRU=
+		</data>
+		<key>Resources/vendor/bin/amneziawg-go</key>
+		<data>
+		dHGmvlXa0HBrqCDfZUXwZRivLOU=
+		</data>
+		<key>Resources/vendor/bin/awg</key>
+		<data>
+		Y0N6oETkRBNqPZx1Qs1g1Fb0q58=
+		</data>
+		<key>Resources/vendor/bin/sing-box</key>
+		<data>
+		WDGa/oYfbNOTtyqk9GSwVm3QAnk=
+		</data>
+		<key>Resources/vendor/bin/xray</key>
+		<data>
+		bk9n+gBlupSrQldZ6T4ybGvy+wk=
+		</data>
+		<key>Resources/vendor/source/README.md</key>
+		<data>
+		k9L0sP6O/tZLhjAJnrH287XsHhc=
+		</data>
+		<key>Resources/vendor/source/amneziawg-go-LICENSE</key>
+		<data>
+		BGiN3+G6h7g0OQKQ3nH934B9nQ8=
+		</data>
+		<key>Resources/vendor/source/amneziawg-go-v3.1.20260828.tar.gz</key>
+		<data>
+		pxdwmQ14EG6WSrrcoyE2nmhwqko=
+		</data>
+		<key>Resources/vendor/source/amneziawg-tools-COPYING</key>
+		<data>
+		TMd7kK+R5hWmSuBIk/3/p5OduEw=
+		</data>
+		<key>Resources/vendor/source/amneziawg-tools-v3.1.20260812.tar.gz</key>
+		<data>
+		0zaunPbgoczJ1Ez8/d4E+F5GxzU=
+		</data>
+		<key>Resources/vendor/source/sing-box-LICENSE</key>
+		<data>
+		xpwN87yIyLchmq1bmCUEJ1S/01M=
+		</data>
+		<key>Resources/vendor/source/sing-box-v1.14.3.tar.gz</key>
+		<data>
+		OcHHVhnJjpACrBpRtFXJBizfNQs=
+		</data>
+		<key>Resources/vendor/source/xray-LICENSE</key>
+		<data>
+		0iFXq8D8C0rpY4DAlSjiPPdykKk=
+		</data>
+		<key>Resources/vendor/source/xray-v26.3.27.tar.gz</key>
+		<data>
+		DrOvOGZV292jiBb0AhvQXKTMliE=
 		</data>
 	</dict>
 	<key>files2</key>
@@ -28,6 +88,20 @@
 			<key>hash2</key>
 			<data>
 			foemll0cQ8soUJDYP7w/qu1Sq/31gWW22gVTc4XVuY4=
+			</data>
+		</dict>
+		<key>Resources/helper/fork-awg-start</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			kO9wDDMjLcaHqi+ucb9wvdqYkTOeS5QYyqqX0wglXww=
+			</data>
+		</dict>
+		<key>Resources/helper/fork-awg-stop</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			gZsKDRHwfMB6heowoR8Db0zkA4Jqhrw2QWxmRLSrma8=
 			</data>
 		</dict>
 		<key>Resources/helper/fork-core-start</key>
@@ -48,7 +122,98 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			z/vSC2VPSGNI+a/QEruiW5B2k4MhDlTO3vgMcAdFiPY=
+			2s/FiE23zYgMpgswX0D1bwfm5KUjI0cusowFjsezCVA=
+			</data>
+		</dict>
+		<key>Resources/vendor/bin/amneziawg-go</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			BTUGDBD6VY+KsPxb2HzETLKFUl30z9kxLk1Vk1r/yhI=
+			</data>
+		</dict>
+		<key>Resources/vendor/bin/awg</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			3XCvdecvZJ5YsJ7VctnaJKKetDuSL83Ug6TvcpihrpA=
+			</data>
+		</dict>
+		<key>Resources/vendor/bin/sing-box</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			l7yaLdXtl8LjRCuRrXnTTErZtoHTO0ThZ8noD/nVe7E=
+			</data>
+		</dict>
+		<key>Resources/vendor/bin/xray</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			Ittrvt6A9R0zwC7mnPnGp983P7SeuQcRilNN+X3lo0M=
+			</data>
+		</dict>
+		<key>Resources/vendor/source/README.md</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			Jd1fCa8ktDv+Zdn8mHS4zkBqELOd/T4fXScL9dz3wro=
+			</data>
+		</dict>
+		<key>Resources/vendor/source/amneziawg-go-LICENSE</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			nsFo0fSvU/KTvovS6IJYjw41rwM0KS1MpOXt6EQIQg4=
+			</data>
+		</dict>
+		<key>Resources/vendor/source/amneziawg-go-v3.1.20260828.tar.gz</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			jMfNwOtbvfsWOXkXy2EovFNZ5ObWiB5FV5AkTctD5DE=
+			</data>
+		</dict>
+		<key>Resources/vendor/source/amneziawg-tools-COPYING</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			gXf5dRMhNSbfLPYYTY/5hsZ1r7UU1OaKQEAQUhuIBkM=
+			</data>
+		</dict>
+		<key>Resources/vendor/source/amneziawg-tools-v3.1.20260812.tar.gz</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			JHtQFeLIBoCwoNn60QjfbduZwQeKyu/qNsVyd4/wDdw=
+			</data>
+		</dict>
+		<key>Resources/vendor/source/sing-box-LICENSE</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			ZQ1eO5mkRvs46CD6h6SVYuDHnquGj/9YYYrEh6WOVUw=
+			</data>
+		</dict>
+		<key>Resources/vendor/source/sing-box-v1.14.3.tar.gz</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			mo43EqX2Ea2V8dFodLvc3/vTuO7Rba4tcc5wQqM8M4Y=
+			</data>
+		</dict>
+		<key>Resources/vendor/source/xray-LICENSE</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			HyVuytGSiAUQ6ErWBHTqt1iSGHhLmlC8fO7jTCuR8dU=
+			</data>
+		</dict>
+		<key>Resources/vendor/source/xray-v26.3.27.tar.gz</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			mSpJl+a7hG0RRpQ11of5nvgS/N4eCgCbuOlRieogMx0=
 			</data>
 		</dict>
 	</dict>
